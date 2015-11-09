@@ -40,7 +40,9 @@ class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
     age = Column(Integer)
+    gender = Column(String(1))
     occupation = Column(String(20))
+    zipcode = Column(Integer)
 
     ratings = relationship("Rating", back_populates="user")
 
@@ -78,17 +80,23 @@ session = Session()
 # session.add_all(ratings)
 # session.commit()
 
-for r in session.query(Rating).all():
-    print(r)
+#
+# for r in session.query(Rating).all():
+#     print(r)
+#
+# for r in session.query(User).all():
+#     print(r)
+#
+# for r in session.query(Movie).all():
+#     print(r)
+#
+# for r in session.query(User).all()[0].ratings:
+#     print(r.rating)
+#
+# for r in session.query(Movie).all()[0].ratings:
+#     print(r.rating)
 
-for r in session.query(User).all():
-    print(r)
-
-for r in session.query(Movie).all():
-    print(r)
-
-for r in session.query(User).all()[0].ratings:
-    print(r.rating)
-
-for r in session.query(Movie).all()[0].ratings:
-    print(r.rating)
+usersFile = open('data/u.user', 'r')
+for line in usersFile:
+    user = line.strip('\n').split('|')
+    print(user)
