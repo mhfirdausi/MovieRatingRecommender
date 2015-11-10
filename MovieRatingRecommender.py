@@ -42,12 +42,14 @@ class User(Base):
     age = Column(Integer)
     gender = Column(String(1))
     occupation = Column(String(20))
-    zipcode = Column(Integer)
+    zipcode = Column(String(10))
 
     ratings = relationship("Rating", back_populates="user")
 
     def __repr__(self):
-        return "<User(age='%i', occupation='%s')>" % (self.age, self.occupation)
+        return "<User(id='%i', age='%i', gender='%s', occupation='%s', zipcode='%s')>" % (self.id, self.age,
+                                                                                          self.gender, self.occupation,
+                                                                                          self.zipcode)
 
 
 class Movie(Base):
@@ -62,7 +64,7 @@ class Movie(Base):
 
 
 # run this only once to create tables
-# Base.metadata.create_all(engine)
+#Base.metadata.create_all(engine)
 
 from sqlalchemy.orm import sessionmaker
 Session = sessionmaker(bind=engine)
@@ -97,6 +99,16 @@ session = Session()
 #     print(r.rating)
 
 usersFile = open('data/u.user', 'r')
+users = []
 for line in usersFile:
     user = line.strip('\n').split('|')
-    print(user)
+    newuser = User(id=int(user[0]), age=int(user[1]), gender=user[2], occupation=user[3], zipcode=user[4])
+    users.append(newuser)
+
+# 
+# session.add_all(users)
+# session.commit()
+
+for u in session.query(User).all():
+    print(u.zipcode)
+
