@@ -56,12 +56,25 @@ class Movie(Base):
     __tablename__ = 'movies'
     id = Column(Integer, primary_key=True)
     name = Column(String(50))
+    releasedate = Column(String(15))
+    videoreleasedate = Column(String(15))
+    imdburl = Column(String(100))
 
     ratings = relationship("Rating", back_populates="movie")
+    moviegenre = relationship("Genre", back_populates="movie_genres")
 
     def __repr__(self):
         return "<Movie(name ='%s')>" % self.name
 
+class Genre():
+    __tablename__ = 'movie_genres'
+    movieid = Column(Integer, ForeignKey('movies.id'), primary_key=True )
+    genre = Column(String(20))
+
+    movie = relationship("Movie", back_populates="movie")
+
+    def __repr__(self):
+        return "<MovieGenre(id ='%i' genre='%s')>" % (self.movieid, self.genre)
 
 # run this only once to create tables
 #Base.metadata.create_all(engine)
@@ -98,12 +111,21 @@ session = Session()
 # for r in session.query(Movie).all()[0].ratings:
 #     print(r.rating)
 
-usersFile = open('data/u.user', 'r')
 users = []
-for line in usersFile:
-    user = line.strip('\n').split('|')
-    newuser = User(id=int(user[0]), age=int(user[1]), gender=user[2], occupation=user[3], zipcode=user[4])
-    users.append(newuser)
+movies = []
+def userRead(fileName):
+    usersFile = open('data/' + fileName, 'r')
+    for line in usersFile:
+        user = line.strip('\n').split('|')
+        newuser = User(id=int(user[0]), age=int(user[1]), gender=user[2], occupation=user[3], zipcode=user[4])
+        users.append(newuser)
+
+def movieRead(fileName):
+    movieFile = open('data/' + fileName, 'r')
+    for line in movieFile:
+        movie = line.strip('\n').split('|')
+        newmovie = movie
+        movies.append(newmovie)
 
 # 
 # session.add_all(users)
