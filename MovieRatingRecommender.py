@@ -55,64 +55,42 @@ class User(Base):
 class Movie(Base):
     __tablename__ = 'movies'
     id = Column(Integer, primary_key=True)
-    name = Column(String(50))
+    title = Column(String(50))
     releasedate = Column(String(15))
     videoreleasedate = Column(String(15))
     imdburl = Column(String(100))
 
     ratings = relationship("Rating", back_populates="movie")
-    moviegenre = relationship("Genre", back_populates="movie_genres")
+   # moviegenre = relationship("Genre", back_populates="movie")
 
     def __repr__(self):
-        return "<Movie(name ='%s')>" % self.name
+        return "<Movie(id = '%i' title ='%s' releasedate = '%s' vidreleasedate='%s' imdburl='%s)>" % (self.id,
+                                                                                                     self.title,
+                                                                                                     self.releasedate,
+                                                                                                     self.videoreleasedate,
+                                                                                                     self.imdburl)
 
 class Genre():
-    __tablename__ = 'movie_genres'
+    __tablename__ = 'genres'
     movieid = Column(Integer, ForeignKey('movies.id'), primary_key=True )
     genre = Column(String(20))
 
-    movie = relationship("Movie", back_populates="movie")
+    movie = relationship("Movie", back_populates="genres")
 
     def __repr__(self):
         return "<MovieGenre(id ='%i' genre='%s')>" % (self.movieid, self.genre)
 
 # run this only once to create tables
-#Base.metadata.create_all(engine)
+# TODO: Create seperate function
+Base.metadata.create_all(engine)
 
 from sqlalchemy.orm import sessionmaker
 Session = sessionmaker(bind=engine)
 session = Session()
 
-# run this only once to load data into tables
-# users = [User(age=20, occupation='student'), User(age=40, occupation='engineer')]
-# session.add_all(users)
-# movies = [Movie(name='star wars III'), Movie(name='Forrest Gump')]
-# session.add_all(movies)
-# ratings = [Rating(user=users[0], movie=movies[0], rating=2),
-#            Rating(user=users[0], movie=movies[1], rating=3),
-#            Rating(user=users[1], movie=movies[0], rating=1),
-#            Rating(user=users[1], movie=movies[1], rating=4)]
-# session.add_all(ratings)
-# session.commit()
-
-#
-# for r in session.query(Rating).all():
-#     print(r)
-#
-# for r in session.query(User).all():
-#     print(r)
-#
-# for r in session.query(Movie).all():
-#     print(r)
-#
-# for r in session.query(User).all()[0].ratings:
-#     print(r.rating)
-#
-# for r in session.query(Movie).all()[0].ratings:
-#     print(r.rating)
-
 users = []
 movies = []
+#TODO: Error Checking
 def userRead(fileName):
     usersFile = open('data/' + fileName, 'r')
     for line in usersFile:
@@ -120,17 +98,25 @@ def userRead(fileName):
         newuser = User(id=int(user[0]), age=int(user[1]), gender=user[2], occupation=user[3], zipcode=user[4])
         users.append(newuser)
 
-def movieRead(fileName):
-    movieFile = open('data/' + fileName, 'r')
+    session.add_all(users)
+    session.commit()
+
+def movieRead(filename):
+    movieFile = open('data/' + filename, 'r')
     for line in movieFile:
         movie = line.strip('\n').split('|')
-        newmovie = movie
+        if (movie[0] == "521"):
+            continue
+        newmovie = Movie(id=int(movie[0]), title=movie[1], releasedate=movie[2], videoreleasedate=movie[3], imdburl=movie[4])
         movies.append(newmovie)
+        print(newmovie)
 
-# 
-# session.add_all(users)
-# session.commit()
+    session.add_all(movies)
+    session.commit()
 
-for u in session.query(User).all():
-    print(u.zipcode)
-
+# userRead("u.user")
+movieRead("u.item")
+#for u in session.query(User).all():
+#    print(u)
+for m in session.query(Movie).all():
+    print(m)
