@@ -8,7 +8,7 @@ from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import sessionmaker
 
-os.remove('mydb')
+# os.remove('mydb')
 
 # Initialize and set up database
 # for development and simple test, use this engine
@@ -37,7 +37,7 @@ class Rating(Base):
     movie = relationship("Movie", back_populates="ratings")
 
     def __repr__(self):
-        return "<%i, %i, %i>" % (self.user_id, self.movie_id, self.rating)
+        return "<id = '%i', user_id='%i', movie_id='%i', rating='%i'>" % (self.id, self.user_id, self.movie_id, self.rating)
 
 
 class User(Base):
@@ -78,12 +78,13 @@ class Movie(Base):
 
 class Genre(Base):
     __tablename__ = 'genres'
+    # Have unique identifier for each genre, save space, avoid putting genre in movies table
     genreid = Column(Integer, primary_key=True)
     movieid = Column(Integer, ForeignKey('movies.id'))
     genre = Column(String(20))
 
     def __repr__(self):
-        return "<MovieGenre(genreid = '%i' movie id ='%i' genre='%s')>" % (self.genreid, self.movieid, self.genre)
+        return "<MovieGenre(genreid = '%i' movie id = '%i' genre= '%s')>" % (self.genreid, self.movieid, self.genre)
 
 
 # TODO: Error Checking
@@ -93,6 +94,7 @@ session = Session()
 users = []
 movies = []
 genres = []
+ratings = []
 
 def userread(filename):
     usersfile = open(filename, 'r')
@@ -109,18 +111,14 @@ def movieread(filename):
     moviefile = open(filename, 'r')
     for line in moviefile:
         movie = line.strip('\n').split('|')
-        # s = movie[0] + ' '
         newmovie = Movie(id=int(movie[0]), title=movie[1], releasedate=movie[2], videoreleasedate=movie[3],
                          imdburl=movie[4])
         for num in range(5, len(movie)):
             if movie[num] == '1':
                 newgenre = Genre(genreid=len(genres), movieid=int(movie[0]), genre=gentable(num))
                 genres.append(newgenre)
-                # s += gentable(num) + ' '
 
         movies.append(newmovie)
-        # print(s)
-        # print(newmovie)
 
     session.add_all(movies)
     session.add_all(genres)
@@ -150,7 +148,15 @@ def gentable(pos):
         23: 'Western'
     }.get(pos)
 
-
+def ratingread(filename):
+    ratingfile = open(filename, 'r')
+    for line in ratingfile:
+        ratingline = line.strip('\n').split('\t')
+        newrating = Rating(id=len(ratings), user_id=int(ratingline[0]), movie_id=int(ratingline[1]),
+                           rating=int(ratingline[2]))
+        ratings.append(newrating)
+    session.add_all(ratings)
+    session.commit()
 # Main Program execution
 if not (engine.has_table('users')) or not (engine.has_table('movies')) or not (engine.has_table('genres')) \
         or not (engine.has_table('ratings')):
@@ -175,6 +181,13 @@ if session.query(Movie).count() == 0 and(session.query(Genre).count() == 0):
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
 
+if session.query(Rating).count() == 0:
+    print("Rating table empty, reading in ratings...")
+    try:
+        ratingread('data/u1.base')
+        print("Rating information read in")
+    except IOError as e:
+        print("I/O error({0}): {1}".format(e.errno, e.strerror))
 
-for m in session.query(Genre).all():
-    print(m)
+# for m in session.query(Rating).all():
+#     print(m)
