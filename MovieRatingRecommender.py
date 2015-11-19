@@ -1,7 +1,12 @@
 import sqlalchemy
-
 from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
+from sqlalchemy.orm import sessionmaker
 
+# Initialize and set up database
 # for development and simple test, use this engine
 engine = create_engine('sqlite:///mydb', echo=False)
 
@@ -14,12 +19,7 @@ engine = create_engine('sqlite:///mydb', echo=False)
 # from config import *
 # engine = create_engine('mysql+mysqlconnector://'+login+'@localhost:3306/'+dbname)
 
-from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
-
-from sqlalchemy import Column, Integer, String
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import relationship
 
 
 class Rating(Base):
@@ -61,33 +61,29 @@ class Movie(Base):
     imdburl = Column(String(100))
 
     ratings = relationship("Rating", back_populates="movie")
-   # moviegenre = relationship("Genre", back_populates="movie")
+    # http://docs.sqlalchemy.org/en/rel_1_0/orm/backref.html?highlight=back_populates
+    genre = relationship("Genre", backref="movie")
 
     def __repr__(self):
         return "<Movie(id = '%i' title ='%s' releasedate = '%s' vidreleasedate='%s' imdburl='%s)>" % (self.id,
-                                                                                                     self.title,
-                                                                                                     self.releasedate,
-                                                                                                     self.videoreleasedate,
-                                                                                                     self.imdburl)
+                                                                                                      self.title,
+                                                                                                      self.releasedate,
+                                                                                                      self.videoreleasedate,
+                                                                                                      self.imdburl)
 
 
 class Genre(Base):
     __tablename__ = 'genres'
-    movieid = Column(Integer, ForeignKey('movies.id'), primary_key=True )
+    movieid = Column(Integer, ForeignKey('movies.id'), primary_key=True)
     genre = Column(String(20))
-
-    #movie = relationship("Movie", back_populates="genres")
 
     def __repr__(self):
         return "<MovieGenre(id ='%i' genre='%s')>" % (self.movieid, self.genre)
 
 
-from sqlalchemy.orm import sessionmaker
+# TODO: Error Checking
 Session = sessionmaker(bind=engine)
 session = Session()
-
-
-# TODO: Error Checking
 
 users = []
 movies = []
@@ -108,19 +104,50 @@ def movieread(filename):
     moviefile = open(filename, 'r')
     for line in moviefile:
         movie = line.strip('\n').split('|')
-        newmovie = Movie(id=int(movie[0]), title=movie[1], releasedate=movie[2], videoreleasedate=movie[3], imdburl=movie[4])
+        s = movie[0] + ' '
+        newmovie = Movie(id=int(movie[0]), title=movie[1], releasedate=movie[2], videoreleasedate=movie[3],
+                         imdburl=movie[4])
+        for num in range(5, len(movie)):
+            if movie[num] == '1':
+                s += gentable(num) + ' '
+
         movies.append(newmovie)
-        #print(newmovie)
+        print(s)
+        # print(newmovie)
 
     session.add_all(movies)
     session.commit()
 
 
+def gentable(pos):
+    return{
+        5: 'unknown',
+        6: 'Action',
+        7: 'Adventure',
+        8: 'Animation',
+        9: 'Children\'s',
+        10: 'Comedy',
+        11: 'Crime',
+        12: 'Documentary',
+        13: 'Drama',
+        14: 'Fantasy',
+        15: 'Film-Noir',
+        16: 'Horror',
+        17: 'Musical',
+        18: 'Mystery',
+        19: 'Romance',
+        20: 'Sci-Fi',
+        21: 'Thriller',
+        22: 'War',
+        23: 'Western'
+    }.get(pos)
+
 # Main Program execution
-if not(engine.has_table('users')) or not(engine.has_table('movies')) or not(engine.has_table('genres')) or not(engine.has_table('ratings')):
+if not (engine.has_table('users')) or not (engine.has_table('movies')) or not (engine.has_table('genres')) \
+        or not (engine.has_table('ratings')):
     print('need to add tables')
     # run this only once to create tables
-    # TODO: Create seperate function
+    # TODO: Create separate function
     Base.metadata.create_all(engine)
 
 if session.query(User).count() == 0:
@@ -131,8 +158,7 @@ if session.query(User).count() == 0:
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
 
-
-if session.query(Movie).count() == 0:
+if session.query(Movie).count() == 0 and(session.query(Genre).count() == 0):
     print("Movie table empty. Reading in movie data...")
     try:
         movieread("data/u.item")
@@ -140,7 +166,4 @@ if session.query(Movie).count() == 0:
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
 
-for u in session.query(User).all():
-    print(u)
-for m in session.query(Movie).all():
-    print(m)
+
