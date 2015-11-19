@@ -1,3 +1,5 @@
+import os
+
 import sqlalchemy
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -5,6 +7,8 @@ from sqlalchemy import Column, Integer, String
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import sessionmaker
+
+os.remove('mydb')
 
 # Initialize and set up database
 # for development and simple test, use this engine
@@ -74,11 +78,12 @@ class Movie(Base):
 
 class Genre(Base):
     __tablename__ = 'genres'
-    movieid = Column(Integer, ForeignKey('movies.id'), primary_key=True)
+    genreid = Column(Integer, primary_key=True)
+    movieid = Column(Integer, ForeignKey('movies.id'))
     genre = Column(String(20))
 
     def __repr__(self):
-        return "<MovieGenre(id ='%i' genre='%s')>" % (self.movieid, self.genre)
+        return "<MovieGenre(genreid = '%i' movie id ='%i' genre='%s')>" % (self.genreid, self.movieid, self.genre)
 
 
 # TODO: Error Checking
@@ -87,7 +92,7 @@ session = Session()
 
 users = []
 movies = []
-
+genres = []
 
 def userread(filename):
     usersfile = open(filename, 'r')
@@ -104,18 +109,21 @@ def movieread(filename):
     moviefile = open(filename, 'r')
     for line in moviefile:
         movie = line.strip('\n').split('|')
-        s = movie[0] + ' '
+        # s = movie[0] + ' '
         newmovie = Movie(id=int(movie[0]), title=movie[1], releasedate=movie[2], videoreleasedate=movie[3],
                          imdburl=movie[4])
         for num in range(5, len(movie)):
             if movie[num] == '1':
-                s += gentable(num) + ' '
+                newgenre = Genre(genreid=len(genres), movieid=int(movie[0]), genre=gentable(num))
+                genres.append(newgenre)
+                # s += gentable(num) + ' '
 
         movies.append(newmovie)
-        print(s)
+        # print(s)
         # print(newmovie)
 
     session.add_all(movies)
+    session.add_all(genres)
     session.commit()
 
 
@@ -142,6 +150,7 @@ def gentable(pos):
         23: 'Western'
     }.get(pos)
 
+
 # Main Program execution
 if not (engine.has_table('users')) or not (engine.has_table('movies')) or not (engine.has_table('genres')) \
         or not (engine.has_table('ratings')):
@@ -167,3 +176,5 @@ if session.query(Movie).count() == 0 and(session.query(Genre).count() == 0):
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
 
 
+for m in session.query(Genre).all():
+    print(m)
