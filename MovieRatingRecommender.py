@@ -7,6 +7,7 @@ from sqlalchemy import Column, Integer, String
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import func
 
 # os.remove('mydb')
 
@@ -35,6 +36,7 @@ class Rating(Base):
 
     user = relationship("User", back_populates="ratings")
     movie = relationship("Movie", back_populates="ratings")
+    #genre = relationship("Genre", backref="ratings")
 
     def __repr__(self):
         return "<id = '%i', user_id='%i', movie_id='%i', rating='%i'>" % (self.id, self.user_id, self.movie_id, self.rating)
@@ -80,7 +82,7 @@ class Genre(Base):
     __tablename__ = 'genres'
     # Have unique identifier for each genre, save space, avoid putting genre in movies table
     genreid = Column(Integer, primary_key=True)
-    movieid = Column(Integer, ForeignKey('movies.id'))
+    movieid = Column(Integer, ForeignKey('movies.id'), ForeignKey('ratings.movie_id'))
     genre = Column(String(20))
 
     def __repr__(self):
@@ -189,5 +191,11 @@ if session.query(Rating).count() == 0:
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
 
-# for m in session.query(Rating).all():
-#     print(m)
+# What is average rating by age group, gender, and occupation of the reviewers?
+q = session.query(User.age, User.gender, User.occupation, func.avg(Rating.rating)).join(Rating)\
+    .group_by(User.age, User.gender, User.occupation)
+for l in q:
+    print(l)
+# What is average rating by movie genre?
+for r in session.query(Genre.genre, func.avg(Rating.rating)).join(Rating).group_by(Genre.genre).all():
+    print(r)
