@@ -9,7 +9,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import func
 
-os.remove('mydb')
+# os.remove('mydb')
 
 # Initialize and set up database
 # for development and simple test, use this engine
@@ -95,6 +95,7 @@ users = []
 movies = []
 genres = []
 ratings = []
+ratingdictionary = {}
 
 
 def user_read(filename):
@@ -110,6 +111,7 @@ def user_read(filename):
 
 def movie_read(filename):
     moviefile = 0
+    # Fix error in reading file encoding
     if _platform == 'darwin':
         moviefile = open(filename, 'r', encoding = "ISO-8859-1")
     else:
@@ -165,8 +167,26 @@ def rating_read(filename):
     session.commit()
 
 
-def average_calc(rating_list, rating, avg):
+def average_calc(movies, users, rating_dict, avg):
     print('Calculating averages...')
+    for item in movies:
+        item_id = item[0]
+        for other in movies:
+            other_id = other[0]
+            average = 0
+            item_count = 0
+            if item != other:
+                for user in users:
+                    user_id = user[0]
+                    if (user_id, item_id) in rating_dict and ((user_id, other_id) in rating_dict):
+                        item_count += 1
+                        average += rating_dict[user_id, other_id] - rating_dict[user_id, item_id]
+                # If at least one person has rated both movies
+                if item_count != 0:
+                    avg[(item_id, other_id)] = average / item_count
+
+
+
 
 # Main Program execution
 if not (engine.has_table('users')) or not (engine.has_table('movies')) or not (engine.has_table('genres')) \
@@ -201,14 +221,23 @@ if session.query(Rating).count() == 0:
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
 
-# What is average rating by age group, gender, and occupation of the reviewers?
-q = session.query(User.age, User.gender, User.occupation, func.avg(Rating.rating)).join(Rating)\
-    .group_by(User.age, User.gender, User.occupation)
-for li in q:
-    print(li)
-# What is average rating by movie genre?
-for r in session.query(Genre.genre, func.avg(Rating.rating)).join(Rating).group_by(Genre.genre).all():
-    print(r)
+# # What is average rating by age group, gender, and occupation of the reviewers?
+# q = session.query(User.age, User.gender, User.occupation, func.avg(Rating.rating)).join(Rating)\
+#     .group_by(User.age, User.gender, User.occupation)
+# for li in q:
+#     print(li)
+# # What is average rating by movie genre?
+# for r in session.query(Genre.genre, func.avg(Rating.rating)).join(Rating).group_by(Genre.genre).all():
+#     print(r)
+
 
 # Slope one recommendation
 averages = {}
+query = session.query(User.id, Rating.movie_id, Rating.rating).join(Rating).all()
+for li in query:
+    ratingdictionary[(li[0], li[1])] = li[2]
+
+moviesfromdb = session.query(Movie.id).all()
+usersfromdb = session.query(User.id).all()
+
+average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages)
