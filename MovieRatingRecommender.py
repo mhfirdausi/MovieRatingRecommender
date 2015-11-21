@@ -1,6 +1,6 @@
 import os
 
-import sqlalchemy
+from sys import platform as _platform
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String
@@ -9,7 +9,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import func
 
-# os.remove('mydb')
+os.remove('mydb')
 
 # Initialize and set up database
 # for development and simple test, use this engine
@@ -36,10 +36,11 @@ class Rating(Base):
 
     user = relationship("User", back_populates="ratings")
     movie = relationship("Movie", back_populates="ratings")
-    #genre = relationship("Genre", backref="ratings")
+    # genre = relationship("Genre", backref="ratings")
 
     def __repr__(self):
-        return "<id = '%i', user_id='%i', movie_id='%i', rating='%i'>" % (self.id, self.user_id, self.movie_id, self.rating)
+        return "<id = '%i', user_id='%i', movie_id='%i', rating='%i'>" % \
+               (self.id, self.user_id, self.movie_id, self.rating)
 
 
 class User(Base):
@@ -71,11 +72,8 @@ class Movie(Base):
     genre = relationship("Genre", backref="movie")
 
     def __repr__(self):
-        return "<Movie(id = '%i' title ='%s' releasedate = '%s' vidreleasedate='%s' imdburl='%s)>" % (self.id,
-                                                                                                      self.title,
-                                                                                                      self.releasedate,
-                                                                                                      self.videoreleasedate,
-                                                                                                      self.imdburl)
+        return "<Movie(id = '%i' title ='%s' releasedate = '%s' vidreleasedate='%s' imdburl='%s)>" % \
+               (self.id, self.title, self.releasedate, self.videoreleasedate, self.imdburl)
 
 
 class Genre(Base):
@@ -98,7 +96,8 @@ movies = []
 genres = []
 ratings = []
 
-def userread(filename):
+
+def user_read(filename):
     usersfile = open(filename, 'r')
     for line in usersfile:
         user = line.strip('\n').split('|')
@@ -109,8 +108,12 @@ def userread(filename):
     session.commit()
 
 
-def movieread(filename):
-    moviefile = open(filename, 'r')
+def movie_read(filename):
+    moviefile = 0
+    if _platform == 'darwin':
+        moviefile = open(filename, 'r', encoding = "ISO-8859-1")
+    else:
+        moviefile = open(filename, 'r')
     for line in moviefile:
         movie = line.strip('\n').split('|')
         newmovie = Movie(id=int(movie[0]), title=movie[1], releasedate=movie[2], videoreleasedate=movie[3],
@@ -150,7 +153,8 @@ def gentable(pos):
         23: 'Western'
     }.get(pos)
 
-def ratingread(filename):
+
+def rating_read(filename):
     ratingfile = open(filename, 'r')
     for line in ratingfile:
         ratingline = line.strip('\n').split('\t')
@@ -159,6 +163,11 @@ def ratingread(filename):
         ratings.append(newrating)
     session.add_all(ratings)
     session.commit()
+
+
+def average_calc(rating_list, rating, avg):
+    print('Calculating averages...')
+
 # Main Program execution
 if not (engine.has_table('users')) or not (engine.has_table('movies')) or not (engine.has_table('genres')) \
         or not (engine.has_table('ratings')):
@@ -170,7 +179,7 @@ if not (engine.has_table('users')) or not (engine.has_table('movies')) or not (e
 if session.query(User).count() == 0:
     print("User table empty. Reading in user data...")
     try:
-        userread("data/u.user")
+        user_read("data/u.user")
         print("User information read in")
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
@@ -178,15 +187,16 @@ if session.query(User).count() == 0:
 if session.query(Movie).count() == 0 and(session.query(Genre).count() == 0):
     print("Movie table empty. Reading in movie data...")
     try:
-        movieread("data/u.item")
+        movie_read("data/u.item")
         print("Movie item information read in")
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
 
+# TODO: rework for multiple u_i.base files
 if session.query(Rating).count() == 0:
     print("Rating table empty, reading in ratings...")
     try:
-        ratingread('data/u1.base')
+        rating_read('data/u1.base')
         print("Rating information read in")
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
@@ -194,8 +204,11 @@ if session.query(Rating).count() == 0:
 # What is average rating by age group, gender, and occupation of the reviewers?
 q = session.query(User.age, User.gender, User.occupation, func.avg(Rating.rating)).join(Rating)\
     .group_by(User.age, User.gender, User.occupation)
-for l in q:
-    print(l)
+for li in q:
+    print(li)
 # What is average rating by movie genre?
 for r in session.query(Genre.genre, func.avg(Rating.rating)).join(Rating).group_by(Genre.genre).all():
     print(r)
+
+# Slope one recommendation
+averages = {}
