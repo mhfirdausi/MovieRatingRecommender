@@ -109,3 +109,4 @@ docs/_build/
 
 # PyBuilder
 target/
+data/averages.item

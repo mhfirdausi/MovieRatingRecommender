@@ -167,16 +167,20 @@ def rating_read(filename):
     session.commit()
 
 
-def average_calc(movies, users, rating_dict, avg):
+def average_calc(movie_list, user_list, rating_dict, avg):
     print('Calculating averages...')
-    for item in movies:
+    # data/averages.item
+    if os.path.isfile('data/averages.item'):
+        return
+    f = open('data/averages.item', 'w')
+    for item in movie_list:
         item_id = item[0]
-        for other in movies:
+        for other in movie_list:
             other_id = other[0]
-            average = 0
+            average = 0.0
             item_count = 0
-            if item != other:
-                for user in users:
+            if item_id > other_id:
+                for user in user_list:
                     user_id = user[0]
                     if (user_id, item_id) in rating_dict and ((user_id, other_id) in rating_dict):
                         item_count += 1
@@ -184,8 +188,15 @@ def average_calc(movies, users, rating_dict, avg):
                 # If at least one person has rated both movies
                 if item_count != 0:
                     avg[(item_id, other_id)] = average / item_count
+                    f.write('{}\t{}\n'.format((item_id, other_id), avg[(item_id, other_id)]))
+        print(item_id)
+    f.close()
 
 
+def slope_one_recommend():
+    print('Calculating slope one')
+    rating_count = 0
+    rating_total = 0.0
 
 
 # Main Program execution
