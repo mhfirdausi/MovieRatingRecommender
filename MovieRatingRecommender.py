@@ -1,6 +1,8 @@
 import os
 
 from sys import platform as _platform
+
+from decimal import Decimal
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String
@@ -163,6 +165,7 @@ def rating_read(filename):
         newrating = Rating(id=len(ratings), user_id=int(ratingline[0]), movie_id=int(ratingline[1]),
                            rating=int(ratingline[2]))
         ratings.append(newrating)
+        ratingdictionary[(int(ratingline[0]), int(ratingline[1]))] = int(ratingline[2])
     session.add_all(ratings)
     session.commit()
 
@@ -170,8 +173,17 @@ def rating_read(filename):
 def average_calc(movie_list, user_list, rating_dict, avg):
     print('Calculating averages...')
     # data/averages.item
+    # TODO: Work for any file
     if os.path.isfile('data/averages.item'):
+        file = open('data/averages.item', 'r')
+        for line in file:
+            new_avg = line.strip('\n').split('\t')
+            new_key = new_avg[0].strip('()').split(',')
+            new_item = int(new_key[0])
+            new_other = int(new_key[1])
+            avg[(new_item, new_other)] = float(new_avg[1])
         return
+
     f = open('data/averages.item', 'w')
     for item in movie_list:
         item_id = item[0]
@@ -189,14 +201,37 @@ def average_calc(movie_list, user_list, rating_dict, avg):
                 if item_count != 0:
                     avg[(item_id, other_id)] = average / item_count
                     f.write('{}\t{}\n'.format((item_id, other_id), avg[(item_id, other_id)]))
-        print(item_id)
     f.close()
 
 
-def slope_one_recommend():
+def slope_one_recommend(user_list, movie_list, target_user, target_movie, avg):
     print('Calculating slope one')
     rating_count = 0
     rating_total = 0.0
+    # TODO: Work for any file
+    target_rating_list = session.query(Rating).filter(Rating.user_id == target_user).all()
+    for user in user_list:
+        user_id = user[0]
+        if target_user == user_id:
+            continue
+        for mov in movie_list:
+            movie_id = mov[0]
+            if (target_user, movie_id) not in ratingdictionary:
+                continue
+            if target_movie == movie_id:
+                continue
+            if (user_id, movie_id) in ratingdictionary and ((user_id, target_movie) in ratingdictionary):
+                if target_movie < movie_id:
+                    rating_total += -1 * avg[(movie_id, target_movie)] + ratingdictionary[(target_user, movie_id)]
+                    rating_count += 1
+                else:
+                    rating_total += avg[(target_movie, movie_id)] + ratingdictionary[(target_user, movie_id)]
+                    rating_count += 1
+                print(rating_total)
+    # TODO: Print to file
+    recommend_rating = rating_total / rating_count
+    print('target user = {} target movie = {} rating = {}'.format(target_user, target_movie, recommend_rating))
+    return recommend_rating
 
 
 # Main Program execution
@@ -231,7 +266,6 @@ if session.query(Rating).count() == 0:
         print("Rating information read in")
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
-
 # # What is average rating by age group, gender, and occupation of the reviewers?
 # q = session.query(User.age, User.gender, User.occupation, func.avg(Rating.rating)).join(Rating)\
 #     .group_by(User.age, User.gender, User.occupation)
@@ -246,9 +280,19 @@ if session.query(Rating).count() == 0:
 averages = {}
 query = session.query(User.id, Rating.movie_id, Rating.rating).join(Rating).all()
 for li in query:
+    if li[0] == 6 and(li[1] == 10):
+        print('oh no')
     ratingdictionary[(li[0], li[1])] = li[2]
 
 moviesfromdb = session.query(Movie.id).all()
 usersfromdb = session.query(User.id).all()
 
 average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages)
+
+print("1 6 = {}".format(slope_one_recommend(usersfromdb, moviesfromdb, 1, 10, averages)))
+
+# def list_merge(list1, list2):
+#     d = {}
+#     for x in list1 + list2:
+#         d.setdefault(x[1], []).extend(x[1:])
+#     return [[x] + y for x, y in d.items()]
