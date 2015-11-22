@@ -246,6 +246,8 @@ def slope_one_recommend(target_user, target_movie, avg):
     #                 rating_total += avg[(target_movie, movie_id)] + ratingdictionary[(target_user, movie_id)]
     #                 rating_count += 1
     # TODO: Print to file
+    if rating_count <= 0:
+        return 0
     recommend_rating = rating_total / rating_count
     return recommend_rating
 
@@ -334,6 +336,8 @@ moviesfromdb = session.query(Movie.id).all()
 usersfromdb = session.query(User.id).all()
 
 average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages)
+
+
 
 try:
     # a = range(1,6)
