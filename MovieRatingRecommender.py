@@ -109,6 +109,7 @@ def user_read(filename):
 
     session.add_all(users)
     session.commit()
+    usersfile.close()
 
 
 def movie_read(filename):
@@ -132,6 +133,7 @@ def movie_read(filename):
     session.add_all(movies)
     session.add_all(genres)
     session.commit()
+    moviefile.close()
 
 
 def gentable(pos):
@@ -168,6 +170,7 @@ def rating_read(filename):
         ratingdictionary[(int(ratingline[0]), int(ratingline[1]))] = int(ratingline[2])
     session.add_all(ratings)
     session.commit()
+    ratingfile.close()
 
 
 def average_calc(movie_list, user_list, rating_dict, avg):
@@ -182,6 +185,7 @@ def average_calc(movie_list, user_list, rating_dict, avg):
             new_item = int(new_key[0])
             new_other = int(new_key[1])
             avg[(new_item, new_other)] = float(new_avg[1])
+        file.close()
         return
 
     f = open('data/averages.item', 'w')
@@ -201,6 +205,7 @@ def average_calc(movie_list, user_list, rating_dict, avg):
                 if item_count != 0:
                     avg[(item_id, other_id)] = average / item_count
                     f.write('{}\t{}\n'.format((item_id, other_id), avg[(item_id, other_id)]))
+                    f.flush()
     f.close()
 
 
@@ -235,23 +240,27 @@ def slope_one_recommend(user_list, movie_list, target_user, target_movie, avg):
 
 
 # TODO: Work for multiple files (number)
-def slope_one_testing(file_input_name, number, user_list, movie_list, avg_dict):
+def slope_one_unknown(file_input_name, number):
     print('testing file {}'.format(number))
     input_file = open(file_input_name, 'r')
+    if os.path.isfile("data/u{}.test.UnknownRating".format(number)):
+        os.remove("data/u{}.test.UnknownRating".format(number))
     output_file = open("data/u{}.test.UnknownRating".format(number), 'w')
     for input_line in input_file:
         result = input_line.strip('\n').split('\t')
         output_file.write(result[0] + '\t' + result[1] + '\n')
-    input_file.flush()
-    output_file.flush()
+        output_file.flush()
+    print('test file {} created'.format(number))
     input_file.close()
     output_file.close()
 
-    print('test file {} created'.format(number))
 
+def slope_one_testing(file_input_name, number, user_list, movie_list, avg_dict):
     input_file = open("data/u{}.test.UnknownRating".format(number), 'r')
     output_file = open("data/u{}.test.Prediction".format(number), 'w')
     print('testing file {}...'.format(number))
+    input_file.seek(0)
+    output_file.seek(0)
     for input_line in input_file:
         result = input_line.strip('\n').split('\t')
         us = int(result[0])
@@ -260,8 +269,6 @@ def slope_one_testing(file_input_name, number, user_list, movie_list, avg_dict):
         output_file.write('{}\t{}\t{}\n'.format(us, mo, rat))
         output_file.flush()
     print('done!')
-    output_file.close()
-
 # Main Program execution
 if not (engine.has_table('users')) or not (engine.has_table('movies')) or not (engine.has_table('genres')) \
         or not (engine.has_table('ratings')):
@@ -319,6 +326,7 @@ average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages)
 
 try:
     # a = range(1,6)
+    slope_one_unknown('data/u1.test', 1)
     slope_one_testing('data/u1.test', 1, usersfromdb, moviesfromdb, averages)
 except IOError as e:
     print("I/O error({0}): {1}".format(e.errno, e.strerror))
