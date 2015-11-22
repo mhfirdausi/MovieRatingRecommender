@@ -205,11 +205,12 @@ def average_calc(movie_list, user_list, rating_dict, avg):
 
 
 def slope_one_recommend(user_list, movie_list, target_user, target_movie, avg):
-    print('Calculating slope one')
+    #print('Calculating slope one')
     rating_count = 0
     rating_total = 0.0
     # TODO: Work for any file
-    target_rating_list = session.query(Rating).filter(Rating.user_id == target_user).all()
+    if target_user == 7 and(target_movie == 599):
+        print('oh no')
     for user in user_list:
         user_id = user[0]
         if target_user == user_id:
@@ -227,12 +228,39 @@ def slope_one_recommend(user_list, movie_list, target_user, target_movie, avg):
                 else:
                     rating_total += avg[(target_movie, movie_id)] + ratingdictionary[(target_user, movie_id)]
                     rating_count += 1
-                print(rating_total)
     # TODO: Print to file
     recommend_rating = rating_total / rating_count
-    print('target user = {} target movie = {} rating = {}'.format(target_user, target_movie, recommend_rating))
+    # print('target user = {} target movie = {} rating = {}'.format(target_user, target_movie, recommend_rating))
     return recommend_rating
 
+
+# TODO: Work for multiple files (number)
+def slope_one_testing(file_input_name, number, user_list, movie_list, avg_dict):
+    print('testing file {}'.format(number))
+    input_file = open(file_input_name, 'r')
+    output_file = open("data/u{}.test.UnknownRating".format(number), 'w')
+    for input_line in input_file:
+        result = input_line.strip('\n').split('\t')
+        output_file.write(result[0] + '\t' + result[1] + '\n')
+    input_file.flush()
+    output_file.flush()
+    input_file.close()
+    output_file.close()
+
+    print('test file {} created'.format(number))
+
+    input_file = open("data/u{}.test.UnknownRating".format(number), 'r')
+    output_file = open("data/u{}.test.Prediction".format(number), 'w')
+    print('testing file {}...'.format(number))
+    for input_line in input_file:
+        result = input_line.strip('\n').split('\t')
+        us = int(result[0])
+        mo = int(result[1])
+        rat = slope_one_recommend(user_list, movie_list, us, mo, avg_dict)
+        output_file.write('{}\t{}\t{}\n'.format(us, mo, rat))
+        output_file.flush()
+    print('done!')
+    output_file.close()
 
 # Main Program execution
 if not (engine.has_table('users')) or not (engine.has_table('movies')) or not (engine.has_table('genres')) \
@@ -289,10 +317,8 @@ usersfromdb = session.query(User.id).all()
 
 average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages)
 
-print("1 6 = {}".format(slope_one_recommend(usersfromdb, moviesfromdb, 1, 10, averages)))
-
-# def list_merge(list1, list2):
-#     d = {}
-#     for x in list1 + list2:
-#         d.setdefault(x[1], []).extend(x[1:])
-#     return [[x] + y for x, y in d.items()]
+try:
+    # a = range(1,6)
+    slope_one_testing('data/u1.test', 1, usersfromdb, moviesfromdb, averages)
+except IOError as e:
+    print("I/O error({0}): {1}".format(e.errno, e.strerror))

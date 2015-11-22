@@ -110,3 +110,5 @@ docs/_build/
 # PyBuilder
 target/
 data/averages.item
+data/u1.test.Prediction
+data/u1.test.UnknownRating
