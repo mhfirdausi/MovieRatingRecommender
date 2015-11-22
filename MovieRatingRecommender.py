@@ -209,33 +209,44 @@ def average_calc(movie_list, user_list, rating_dict, avg):
     f.close()
 
 
-def slope_one_recommend(user_list, movie_list, target_user, target_movie, avg):
-    #print('Calculating slope one')
+def slope_one_recommend(target_user, target_movie, avg):
     rating_count = 0
     rating_total = 0.0
     # TODO: Work for any file
     if target_user == 7 and(target_movie == 599):
         print('oh no')
-    for user in user_list:
-        user_id = user[0]
-        if target_user == user_id:
-            continue
-        for mov in movie_list:
-            movie_id = mov[0]
-            if (target_user, movie_id) not in ratingdictionary:
-                continue
-            if target_movie == movie_id:
-                continue
-            if (user_id, movie_id) in ratingdictionary and ((user_id, target_movie) in ratingdictionary):
+    target_user_ratings = session.query(Rating.movie_id).filter(Rating.user_id == target_user).all()
+    for t_rating in target_user_ratings:
+        movie_id = t_rating[0]
+        user_rate_target = session.query(Rating.user_id).filter(Rating.movie_id == movie_id).all()
+        for use in user_rate_target:
+            user_id = use[0]
+            if (user_id, target_movie) in ratingdictionary:
                 if target_movie < movie_id:
                     rating_total += -1 * avg[(movie_id, target_movie)] + ratingdictionary[(target_user, movie_id)]
                     rating_count += 1
                 else:
                     rating_total += avg[(target_movie, movie_id)] + ratingdictionary[(target_user, movie_id)]
                     rating_count += 1
+    # for user in user_list:
+    #     user_id = user[0]
+    #     if target_user == user_id:
+    #         continue
+    #     for mov in movie_list:
+    #         movie_id = mov[0]
+    #         if (target_user, movie_id) not in ratingdictionary:
+    #             continue
+    #         if target_movie == movie_id:
+    #             continue
+    #         if (user_id, movie_id) in ratingdictionary and ((user_id, target_movie) in ratingdictionary):
+    #             if target_movie < movie_id:
+    #                 rating_total += -1 * avg[(movie_id, target_movie)] + ratingdictionary[(target_user, movie_id)]
+    #                 rating_count += 1
+    #             else:
+    #                 rating_total += avg[(target_movie, movie_id)] + ratingdictionary[(target_user, movie_id)]
+    #                 rating_count += 1
     # TODO: Print to file
     recommend_rating = rating_total / rating_count
-    # print('target user = {} target movie = {} rating = {}'.format(target_user, target_movie, recommend_rating))
     return recommend_rating
 
 
@@ -265,7 +276,7 @@ def slope_one_testing(file_input_name, number, user_list, movie_list, avg_dict):
         result = input_line.strip('\n').split('\t')
         us = int(result[0])
         mo = int(result[1])
-        rat = slope_one_recommend(user_list, movie_list, us, mo, avg_dict)
+        rat = slope_one_recommend(us, mo, avg_dict)
         output_file.write('{}\t{}\t{}\n'.format(us, mo, rat))
         output_file.flush()
     print('done!')
