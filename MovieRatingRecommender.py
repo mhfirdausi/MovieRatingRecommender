@@ -319,10 +319,10 @@ for count in file_nums:
     print('\nWhat is average rating by age group, gender, and occupation of the reviewers?')
     q = session.query(User.age, User.gender, User.occupation, func.avg(Rating.rating)).join(Rating)\
         .group_by(User.age, User.gender, User.occupation)
-    print('{:^5s}|{:^9s}|{:^12s}|{:^8s}'.format('Age', 'Gender', 'Occupation', 'Rating'))
+    print('{:^5s}|{:^9s}|{:^15s}|{:^8s}'.format('Age', 'Gender', 'Occupation', 'Rating'))
     print('-'*37)
     for li in q:
-        print('{:^5d} {:^9s} {:^12s} {:^8.3f}'.format(li[0], li[1], li[2], li[3]))
+        print('{:^5d} {:^9s} {:^15s} {:^8.3f}'.format(li[0], li[1], li[2], li[3]))
     # What is average rating by movie genre?
     print('\nWhat is average rating by movie genre?')
     print('{:^15s}|{:^8s}'.format('Genre', 'Rating'))
@@ -333,16 +333,16 @@ for count in file_nums:
 
 
 # Slope one recommendation
-query = session.query(User.id, Rating.movie_id, Rating.rating).join(Rating).all()
-for li in query:
-    ratingdictionary[(li[0], li[1])] = li[2]
+# query = session.query(User.id, Rating.movie_id, Rating.rating).join(Rating).all()
+# for li in query:
+#     ratingdictionary[(li[0], li[1])] = li[2]
 
 moviesfromdb = session.query(Movie.id).all()
 usersfromdb = session.query(User.id).all()
 
 # average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages)
 mse = performance_measure('data/u1.test', 'data/u1.test.Prediction')
-print("MSE for file {} = {.3f}".format(1, mse))
+print("MSE for file {} = {:.3f}".format(1, mse))
 # try:
 #     # a = range(1,6)
 #     slope_one_unknown('data/u1.test', 1)
