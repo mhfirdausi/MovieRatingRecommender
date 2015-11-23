@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String
 from sqlalchemy import ForeignKey
+from sqlalchemy import distinct
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import func
@@ -213,21 +214,31 @@ def slope_one_recommend(target_user, target_movie, avg):
     rating_count = 0
     rating_total = 0.0
     # TODO: Work for any file
-    if target_user == 7 and(target_movie == 599):
-        print('oh no')
     target_user_ratings = session.query(Rating.movie_id).filter(Rating.user_id == target_user).all()
     for t_rating in target_user_ratings:
         movie_id = t_rating[0]
-        user_rate_target = session.query(Rating.user_id).filter(Rating.movie_id == movie_id).all()
-        for use in user_rate_target:
+        # user_rate_target = session.query(Rating.user_id).filter(Rating.movie_id == movie_id).all()
+        substmt = session.query(Rating.user_id).filter(Rating.movie_id == target_movie).subquery()
+        stmt = session.query(distinct(Rating.user_id)).filter(Rating.movie_id == movie_id).filter(Rating.user_id == substmt.c.user_id).all()
+        for use in stmt:
             user_id = use[0]
-            if (user_id, target_movie) in ratingdictionary:
-                if target_movie < movie_id:
-                    rating_total += -1 * avg[(movie_id, target_movie)] + ratingdictionary[(target_user, movie_id)]
-                    rating_count += 1
-                else:
-                    rating_total += avg[(target_movie, movie_id)] + ratingdictionary[(target_user, movie_id)]
-                    rating_count += 1
+            if target_movie < movie_id:
+                rating_total += -1 * avg[(movie_id, target_movie)] + ratingdictionary[(target_user, movie_id)]
+                rating_count += 1
+            else:
+                rating_total += avg[(target_movie, movie_id)] + ratingdictionary[(target_user, movie_id)]
+                rating_count += 1
+        # for use in user_rate_target:
+        #     user_id = use[0]
+        #     if (user_id, target_movie) in ratingdictionary:
+        #         user_count += 1
+        #         if target_movie < movie_id:
+        #             rating_total += -1 * avg[(movie_id, target_movie)] + ratingdictionary[(target_user, movie_id)]
+        #             rating_count += 1
+        #         else:
+        #             rating_total += avg[(target_movie, movie_id)] + ratingdictionary[(target_user, movie_id)]
+        #             rating_count += 1
+        # print('total users: {}, actual: {}'.format(len(user_rate_target), user_count))
     # for user in user_list:
     #     user_id = user[0]
     #     if target_user == user_id:
@@ -336,8 +347,6 @@ moviesfromdb = session.query(Movie.id).all()
 usersfromdb = session.query(User.id).all()
 
 average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages)
-
-
 
 try:
     # a = range(1,6)
