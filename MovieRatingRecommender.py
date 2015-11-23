@@ -3,6 +3,8 @@ import os
 from sys import platform as _platform
 
 from decimal import Decimal
+
+import math
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String
@@ -293,6 +295,24 @@ def slope_one_testing(file_input_name, number, user_list, movie_list, avg_dict):
         output_file.write('{}\t{}\t{}\n'.format(us, mo, rat))
         output_file.flush()
     print('done!')
+
+
+def performance_measure(test_file, prediction_file):
+    test = open(test_file, 'r')
+    prediction = open(prediction_file, 'r')
+    sum_error = 0.0
+    count_error = 0
+    for line1, line2 in zip(test, prediction):
+        # UID   MID    Rating
+        a_rate_line = line1.strip('\n').split('\t')
+        p_rate_line = line2.strip('\n').split('\t')
+        actual_rating = float(a_rate_line[2])
+        predict_rating = float(p_rate_line[2])
+        print('a:{} p:{}'.format(actual_rating, predict_rating))
+        sum_error += math.pow((predict_rating - actual_rating), 2)
+        count_error += 1
+    return sum_error / count_error
+
 # Main Program execution
 if not (engine.has_table('users')) or not (engine.has_table('movies')) or not (engine.has_table('genres')) \
         or not (engine.has_table('ratings')):
@@ -346,11 +366,12 @@ for li in query:
 moviesfromdb = session.query(Movie.id).all()
 usersfromdb = session.query(User.id).all()
 
-average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages)
+# average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages)
 
-try:
-    # a = range(1,6)
-    slope_one_unknown('data/u1.test', 1)
-    slope_one_testing('data/u1.test', 1, usersfromdb, moviesfromdb, averages)
-except IOError as e:
-    print("I/O error({0}): {1}".format(e.errno, e.strerror))
+print(performance_measure('data/u1.test', 'data/u1.test.Prediction'))
+# try:
+#     # a = range(1,6)
+#     slope_one_unknown('data/u1.test', 1)
+#     slope_one_testing('data/u1.test', 1, usersfromdb, moviesfromdb, averages)
+# except IOError as e:
+#     print("I/O error({0}): {1}".format(e.errno, e.strerror))
