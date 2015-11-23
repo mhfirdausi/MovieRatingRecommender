@@ -2,8 +2,6 @@ import os
 
 from sys import platform as _platform
 
-from decimal import Decimal
-
 import math
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -101,6 +99,7 @@ movies = []
 genres = []
 ratings = []
 ratingdictionary = {}
+averages = {}
 
 
 def user_read(filename):
@@ -116,10 +115,9 @@ def user_read(filename):
 
 
 def movie_read(filename):
-    moviefile = 0
     # Fix error in reading file encoding
     if _platform == 'darwin':
-        moviefile = open(filename, 'r', encoding = "ISO-8859-1")
+        moviefile = open(filename, 'r', encoding="ISO-8859-1")
     else:
         moviefile = open(filename, 'r')
     for line in moviefile:
@@ -176,10 +174,10 @@ def rating_read(filename):
     ratingfile.close()
 
 
+# TODO: Optimize average function
 def average_calc(movie_list, user_list, rating_dict, avg):
     print('Calculating averages...')
     # data/averages.item
-    # TODO: Work for any file
     if os.path.isfile('data/averages.item'):
         file = open('data/averages.item', 'r')
         for line in file:
@@ -219,46 +217,15 @@ def slope_one_recommend(target_user, target_movie, avg):
     target_user_ratings = session.query(Rating.movie_id).filter(Rating.user_id == target_user).all()
     for t_rating in target_user_ratings:
         movie_id = t_rating[0]
-        # user_rate_target = session.query(Rating.user_id).filter(Rating.movie_id == movie_id).all()
         substmt = session.query(Rating.user_id).filter(Rating.movie_id == target_movie).subquery()
         stmt = session.query(distinct(Rating.user_id)).filter(Rating.movie_id == movie_id).filter(Rating.user_id == substmt.c.user_id).all()
         for use in stmt:
-            user_id = use[0]
             if target_movie < movie_id:
                 rating_total += -1 * avg[(movie_id, target_movie)] + ratingdictionary[(target_user, movie_id)]
                 rating_count += 1
             else:
                 rating_total += avg[(target_movie, movie_id)] + ratingdictionary[(target_user, movie_id)]
                 rating_count += 1
-        # for use in user_rate_target:
-        #     user_id = use[0]
-        #     if (user_id, target_movie) in ratingdictionary:
-        #         user_count += 1
-        #         if target_movie < movie_id:
-        #             rating_total += -1 * avg[(movie_id, target_movie)] + ratingdictionary[(target_user, movie_id)]
-        #             rating_count += 1
-        #         else:
-        #             rating_total += avg[(target_movie, movie_id)] + ratingdictionary[(target_user, movie_id)]
-        #             rating_count += 1
-        # print('total users: {}, actual: {}'.format(len(user_rate_target), user_count))
-    # for user in user_list:
-    #     user_id = user[0]
-    #     if target_user == user_id:
-    #         continue
-    #     for mov in movie_list:
-    #         movie_id = mov[0]
-    #         if (target_user, movie_id) not in ratingdictionary:
-    #             continue
-    #         if target_movie == movie_id:
-    #             continue
-    #         if (user_id, movie_id) in ratingdictionary and ((user_id, target_movie) in ratingdictionary):
-    #             if target_movie < movie_id:
-    #                 rating_total += -1 * avg[(movie_id, target_movie)] + ratingdictionary[(target_user, movie_id)]
-    #                 rating_count += 1
-    #             else:
-    #                 rating_total += avg[(target_movie, movie_id)] + ratingdictionary[(target_user, movie_id)]
-    #                 rating_count += 1
-    # TODO: Print to file
     if rating_count <= 0:
         return 0
     recommend_rating = rating_total / rating_count
@@ -308,7 +275,6 @@ def performance_measure(test_file, prediction_file):
         p_rate_line = line2.strip('\n').split('\t')
         actual_rating = float(a_rate_line[2])
         predict_rating = float(p_rate_line[2])
-        print('a:{} p:{}'.format(actual_rating, predict_rating))
         sum_error += math.pow((predict_rating - actual_rating), 2)
         count_error += 1
     return sum_error / count_error
@@ -318,7 +284,6 @@ if not (engine.has_table('users')) or not (engine.has_table('movies')) or not (e
         or not (engine.has_table('ratings')):
     print('need to add tables')
     # run this only once to create tables
-    # TODO: Create separate function
     Base.metadata.create_all(engine)
 
 if session.query(User).count() == 0:
@@ -337,38 +302,47 @@ if session.query(Movie).count() == 0 and(session.query(Genre).count() == 0):
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
 
-# TODO: rework for multiple u_i.base files
-if session.query(Rating).count() == 0:
-    print("Rating table empty, reading in ratings...")
+if session.query(Rating).count() != 0:
+    session.query(Rating).delete()
+    session.commit()
+
+# TODO: Everything inside this 1 - 5 loop: Slope one, Output to file, Testing
+file_nums = range(1, 6)
+for count in file_nums:
+    sum_mse = 0.0
+    print('Reading in ratings for file: {}'.format(count))
     try:
-        rating_read('data/u1.base')
-        print("Rating information read in")
+        rating_read('data/u{}.base'.format(count))
+        print('Ratings from file {} read in'.format(count))
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
-# # What is average rating by age group, gender, and occupation of the reviewers?
-# q = session.query(User.age, User.gender, User.occupation, func.avg(Rating.rating)).join(Rating)\
-#     .group_by(User.age, User.gender, User.occupation)
-# for li in q:
-#     print(li)
-# # What is average rating by movie genre?
-# for r in session.query(Genre.genre, func.avg(Rating.rating)).join(Rating).group_by(Genre.genre).all():
-#     print(r)
+    print('\nWhat is average rating by age group, gender, and occupation of the reviewers?')
+    q = session.query(User.age, User.gender, User.occupation, func.avg(Rating.rating)).join(Rating)\
+        .group_by(User.age, User.gender, User.occupation)
+    print('{:^5s}|{:^9s}|{:^12s}|{:^8s}'.format('Age', 'Gender', 'Occupation', 'Rating'))
+    print('-'*37)
+    for li in q:
+        print('{:^5d} {:^9s} {:^12s} {:^8.3f}'.format(li[0], li[1], li[2], li[3]))
+    # What is average rating by movie genre?
+    print('\nWhat is average rating by movie genre?')
+    print('{:^15s}|{:^8s}'.format('Genre', 'Rating'))
+    print('-'*24)
+    for r in session.query(Genre.genre, func.avg(Rating.rating)).join(Rating).group_by(Genre.genre).all():
+        print('{:^15s} {:^8.3f}'.format(r[0], r[1]))
+    print('Done with file {}'.format(count))
 
 
 # Slope one recommendation
-averages = {}
 query = session.query(User.id, Rating.movie_id, Rating.rating).join(Rating).all()
 for li in query:
-    if li[0] == 6 and(li[1] == 10):
-        print('oh no')
     ratingdictionary[(li[0], li[1])] = li[2]
 
 moviesfromdb = session.query(Movie.id).all()
 usersfromdb = session.query(User.id).all()
 
 # average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages)
-
-print(performance_measure('data/u1.test', 'data/u1.test.Prediction'))
+mse = performance_measure('data/u1.test', 'data/u1.test.Prediction')
+print("MSE for file {} = {.3f}".format(1, mse))
 # try:
 #     # a = range(1,6)
 #     slope_one_unknown('data/u1.test', 1)
