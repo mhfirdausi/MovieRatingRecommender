@@ -1,3 +1,10 @@
+# Slope One Movie Recommendation System
+# CS 2730
+# December 1, 2015
+# Mohammad Firdausi
+# Ben Graham
+# Robert Pohlman
+
 import os
 
 from sys import platform as _platform
@@ -25,6 +32,8 @@ engine = create_engine('sqlite:///mydb', echo=False)
 #  * Use the following engine, set login to be the string of yourusername:yourpassword
 #    and "dbname" to be the string of your mysql login name.
 # from config import *
+# login = 'cs273009:ofepopja'
+# dbname = 'cs273004'
 # engine = create_engine('mysql+mysqlconnector://'+login+'@localhost:3306/'+dbname)
 
 Base = declarative_base()
@@ -90,7 +99,6 @@ class Genre(Base):
         return "<MovieGenre(genreid = '%i' movie id = '%i' genre= '%s')>" % (self.genreid, self.movieid, self.genre)
 
 
-# TODO: Error Checking
 Session = sessionmaker(bind=engine)
 session = Session()
 
@@ -174,12 +182,11 @@ def rating_read(filename):
     ratingfile.close()
 
 
-# TODO: Optimize average function
-def average_calc(movie_list, user_list, rating_dict, avg):
-    print('Calculating averages...')
+def average_calc(movie_list, user_list, rating_dict, avg, file_num):
+    print('Calculating averages for file {}...'.format(file_num))
     # data/averages.item
-    if os.path.isfile('data/averages.item'):
-        file = open('data/averages.item', 'r')
+    if os.path.isfile('data/averages_{}.item'.format(file_num)):
+        file = open('data/averages_{}.item'.format(file_num), 'r')
         for line in file:
             new_avg = line.strip('\n').split('\t')
             new_key = new_avg[0].strip('()').split(',')
@@ -189,7 +196,7 @@ def average_calc(movie_list, user_list, rating_dict, avg):
         file.close()
         return
 
-    f = open('data/averages.item', 'w')
+    f = open('data/averages_{}.item'.format(file_num), 'w')
     for item in movie_list:
         item_id = item[0]
         for other in movie_list:
@@ -213,7 +220,6 @@ def average_calc(movie_list, user_list, rating_dict, avg):
 def slope_one_recommend(target_user, target_movie, avg):
     rating_count = 0
     rating_total = 0.0
-    # TODO: Work for any file
     target_user_ratings = session.query(Rating.movie_id).filter(Rating.user_id == target_user).all()
     for t_rating in target_user_ratings:
         movie_id = t_rating[0]
@@ -232,7 +238,6 @@ def slope_one_recommend(target_user, target_movie, avg):
     return recommend_rating
 
 
-# TODO: Work for multiple files (number)
 def slope_one_unknown(file_input_name, number):
     print('testing file {}'.format(number))
     input_file = open(file_input_name, 'r')
@@ -306,7 +311,8 @@ if session.query(Rating).count() != 0:
     session.query(Rating).delete()
     session.commit()
 
-# TODO: Everything inside this 1 - 5 loop: Slope one, Output to file, Testing
+# TODO: Everything inside this 1 - 5 loop: MSE
+# TODO: Cumulative average MSE
 file_nums = range(1, 6)
 for count in file_nums:
     sum_mse = 0.0
@@ -323,29 +329,17 @@ for count in file_nums:
     print('-'*37)
     for li in q:
         print('{:^5d} {:^9s} {:^15s} {:^8.3f}'.format(li[0], li[1], li[2], li[3]))
-    # What is average rating by movie genre?
     print('\nWhat is average rating by movie genre?')
     print('{:^15s}|{:^8s}'.format('Genre', 'Rating'))
     print('-'*24)
     for r in session.query(Genre.genre, func.avg(Rating.rating)).join(Rating).group_by(Genre.genre).all():
         print('{:^15s} {:^8.3f}'.format(r[0], r[1]))
+    moviesfromdb = session.query(Movie.id).all()
+    usersfromdb = session.query(User.id).all()
+    average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages, count)
+    slope_one_unknown('data/u{}.test'.format(count), count)
+    # slope_one_testing('data/u{}.test'.format(count), count, usersfromdb, moviesfromdb, averages)
     print('Done with file {}'.format(count))
-
-
-# Slope one recommendation
-# query = session.query(User.id, Rating.movie_id, Rating.rating).join(Rating).all()
-# for li in query:
-#     ratingdictionary[(li[0], li[1])] = li[2]
-
-moviesfromdb = session.query(Movie.id).all()
-usersfromdb = session.query(User.id).all()
-
-# average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages)
-mse = performance_measure('data/u1.test', 'data/u1.test.Prediction')
-print("MSE for file {} = {:.3f}".format(1, mse))
-# try:
-#     # a = range(1,6)
-#     slope_one_unknown('data/u1.test', 1)
-#     slope_one_testing('data/u1.test', 1, usersfromdb, moviesfromdb, averages)
-# except IOError as e:
-#     print("I/O error({0}): {1}".format(e.errno, e.strerror))
+    # TODO: Every file performance measure
+    mse = performance_measure('data/u1.test', 'data/u1.test.Prediction')
+    print("MSE for file {} = {:.3f}".format(1, mse))
