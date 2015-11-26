@@ -16,8 +16,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String
 from sqlalchemy import ForeignKey
 from sqlalchemy import distinct
+from sqlalchemy import inspect
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import make_transient
 from sqlalchemy import func
 
 # os.remove('mydb')
@@ -183,19 +185,17 @@ def rating_read(filename):
     ratingfile.close()
 
 
-def average_calc(movie_list, user_list, rating_dict, avg, file_num):
+def average_calc(movie_list, user_list, file_num):
     print('Calculating averages for file {}...'.format(file_num))
     # data/averages.item
     if os.path.isfile('data/averages_{}.item'.format(file_num)):
         file = open('data/averages_{}.item'.format(file_num), 'r')
-        line_count = sum(1 for li in file)
-        print(line_count)
         for line in file:
             new_avg = line.strip('\n').split('\t')
             new_key = new_avg[0].strip('()').split(',')
             new_item = int(new_key[0])
             new_other = int(new_key[1])
-            avg[(new_item, new_other)] = float(new_avg[1])
+            averages[(new_item, new_other)] = float(new_avg[1])
         file.close()
         return
 
@@ -209,18 +209,18 @@ def average_calc(movie_list, user_list, rating_dict, avg, file_num):
             if item_id > other_id:
                 for user in user_list:
                     user_id = user[0]
-                    if (user_id, item_id) in rating_dict and ((user_id, other_id) in rating_dict):
+                    if (user_id, item_id) in ratingdictionary and ((user_id, other_id) in ratingdictionary):
                         item_count += 1
-                        average += rating_dict[user_id, other_id] - rating_dict[user_id, item_id]
+                        average += ratingdictionary[user_id, other_id] - ratingdictionary[user_id, item_id]
                 # If at least one person has rated both movies
                 if item_count != 0:
-                    avg[(item_id, other_id)] = average / item_count
-                    f.write('{}\t{}\n'.format((item_id, other_id), avg[(item_id, other_id)]))
+                    averages[(item_id, other_id)] = average / item_count
+                    f.write('{}\t{}\n'.format((item_id, other_id), averages[(item_id, other_id)]))
                     f.flush()
     f.close()
 
 
-def slope_one_recommend(target_user, target_movie, avg):
+def slope_one_recommend(target_user, target_movie):
     rating_count = 0
     rating_total = 0.0
     target_user_ratings = session.query(Rating.movie_id).filter(Rating.user_id == target_user).all()
@@ -230,10 +230,10 @@ def slope_one_recommend(target_user, target_movie, avg):
         stmt = session.query(distinct(Rating.user_id)).filter(Rating.movie_id == movie_id).filter(Rating.user_id == substmt.c.user_id).all()
         for use in stmt:
             if target_movie < movie_id:
-                rating_total += -1 * avg[(movie_id, target_movie)] + ratingdictionary[(target_user, movie_id)]
+                rating_total += -1 * averages[(movie_id, target_movie)] + ratingdictionary[(target_user, movie_id)]
                 rating_count += 1
             else:
-                rating_total += avg[(target_movie, movie_id)] + ratingdictionary[(target_user, movie_id)]
+                rating_total += averages[(target_movie, movie_id)] + ratingdictionary[(target_user, movie_id)]
                 rating_count += 1
     if rating_count <= 0:
         return 0
@@ -256,7 +256,7 @@ def slope_one_unknown(file_input_name, number):
     output_file.close()
 
 
-def slope_one_testing(number, user_list, movie_list, avg_dict):
+def slope_one_testing(number):
     input_file = open("data/u{}.test.UnknownRating".format(number), 'r')
     line_count = sum(1 for li in input_file)
     if os.path.isfile("data/u{}.test.Prediction".format(number)):
@@ -276,7 +276,7 @@ def slope_one_testing(number, user_list, movie_list, avg_dict):
         result = input_line.strip('\n').split('\t')
         us = int(result[0])
         mo = int(result[1])
-        rat = slope_one_recommend(us, mo, avg_dict)
+        rat = slope_one_recommend(us, mo)
         output_file.write('{}\t{}\t{}\n'.format(us, mo, rat))
         output_file.flush()
     print('Done testing file {}!'.format(number))
@@ -304,37 +304,30 @@ if not (engine.has_table('users')) or not (engine.has_table('movies')) or not (e
     # run this only once to create tables
     Base.metadata.create_all(engine)
 
-if session.query(User).count() == 0:
-    print("User table empty. Reading in user data...")
-    try:
-        user_read("data/u.user")
-        print("User information read in")
-    except IOError as e:
-        print("I/O error({0}): {1}".format(e.errno, e.strerror))
 
-if session.query(Movie).count() == 0 and(session.query(Genre).count() == 0):
-    print("Movie table empty. Reading in movie data...")
-    try:
-        movie_read("data/u.item")
-        print("Movie item information read in")
-    except IOError as e:
-        print("I/O error({0}): {1}".format(e.errno, e.strerror))
-
-if session.query(Rating).count() != 0:
-    session.query(Rating).delete()
-    session.commit()
 
 # TODO: Everything inside this 1 - 5 loop: MSE
 # TODO: Cumulative average MSE
 file_nums = range(1, 6)
-moviesfromdb = session.query(Movie.id).all()
-usersfromdb = session.query(User.id).all()
 for count in file_nums:
+    if count == 1:
+        continue
     sum_mse = 0.0
+    users = []
+    movies = []
+    genres = []
+    rating = []
     averages.clear()
     ratingdictionary.clear()
+    Base.metadata.drop_all(engine)
+    session.expunge_all()
+    Base.metadata.create_all(engine)
     print('Reading in ratings for file: {}'.format(count))
     try:
+        user_read("data/u.user")
+        print("User information read in")
+        movie_read("data/u.item")
+        print("Movie item information read in")
         rating_read('data/u{}.base'.format(count))
         print('Ratings from file {} read in'.format(count))
     except IOError as e:
@@ -351,9 +344,12 @@ for count in file_nums:
     # print('-'*24)
     # for r in session.query(Genre.genre, func.avg(Rating.rating)).join(Rating).group_by(Genre.genre).all():
     #     print('{:^15s} {:^8.3f}'.format(r[0], r[1]))
-    average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages, count)
+    moviesfromdb = session.query(Movie.id).all()
+    usersfromdb = session.query(User.id).all()
+    average_calc(moviesfromdb, usersfromdb, count)
     slope_one_unknown('data/u{}.test'.format(count), count)
-    # slope_one_testing(count, usersfromdb, moviesfromdb, averages)
+    if count < 3:
+        slope_one_testing(count)
     print('Done with file {}'.format(count))
     # TODO: Every file performance measure
     mse = performance_measure('data/u1.test', 'data/u1.test.Prediction')
