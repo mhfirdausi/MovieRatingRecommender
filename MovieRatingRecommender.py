@@ -10,6 +10,7 @@ import os
 from sys import platform as _platform
 
 import math
+import sqlalchemy
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String
@@ -33,7 +34,7 @@ engine = create_engine('sqlite:///mydb', echo=False)
 #    and "dbname" to be the string of your mysql login name.
 # from config import *
 # login = 'cs273009:ofepopja'
-# dbname = 'cs273004'
+# dbname = 'cs273004 -password=eopo6b'
 # engine = create_engine('mysql+mysqlconnector://'+login+'@localhost:3306/'+dbname)
 
 Base = declarative_base()
@@ -187,6 +188,8 @@ def average_calc(movie_list, user_list, rating_dict, avg, file_num):
     # data/averages.item
     if os.path.isfile('data/averages_{}.item'.format(file_num)):
         file = open('data/averages_{}.item'.format(file_num), 'r')
+        line_count = sum(1 for li in file)
+        print(line_count)
         for line in file:
             new_avg = line.strip('\n').split('\t')
             new_key = new_avg[0].strip('()').split(',')
@@ -253,10 +256,20 @@ def slope_one_unknown(file_input_name, number):
     output_file.close()
 
 
-def slope_one_testing(file_input_name, number, user_list, movie_list, avg_dict):
+def slope_one_testing(number, user_list, movie_list, avg_dict):
     input_file = open("data/u{}.test.UnknownRating".format(number), 'r')
+    line_count = sum(1 for li in input_file)
+    if os.path.isfile("data/u{}.test.Prediction".format(number)):
+        check_out = open("data/u{}.test.Prediction".format(number), 'r')
+        out_count = sum(1 for li in check_out)
+        if out_count >= line_count:
+            print('Predictions already generated for file {}.'.format(number))
+            check_out.close()
+            input_file.close()
+            return
+        check_out.close()
     output_file = open("data/u{}.test.Prediction".format(number), 'w')
-    print('testing file {}...'.format(number))
+    print('Testing file {}...'.format(number))
     input_file.seek(0)
     output_file.seek(0)
     for input_line in input_file:
@@ -266,7 +279,7 @@ def slope_one_testing(file_input_name, number, user_list, movie_list, avg_dict):
         rat = slope_one_recommend(us, mo, avg_dict)
         output_file.write('{}\t{}\t{}\n'.format(us, mo, rat))
         output_file.flush()
-    print('done!')
+    print('Done testing file {}!'.format(number))
 
 
 def performance_measure(test_file, prediction_file):
@@ -314,31 +327,33 @@ if session.query(Rating).count() != 0:
 # TODO: Everything inside this 1 - 5 loop: MSE
 # TODO: Cumulative average MSE
 file_nums = range(1, 6)
+moviesfromdb = session.query(Movie.id).all()
+usersfromdb = session.query(User.id).all()
 for count in file_nums:
     sum_mse = 0.0
+    averages.clear()
+    ratingdictionary.clear()
     print('Reading in ratings for file: {}'.format(count))
     try:
         rating_read('data/u{}.base'.format(count))
         print('Ratings from file {} read in'.format(count))
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
-    print('\nWhat is average rating by age group, gender, and occupation of the reviewers?')
-    q = session.query(User.age, User.gender, User.occupation, func.avg(Rating.rating)).join(Rating)\
-        .group_by(User.age, User.gender, User.occupation)
-    print('{:^5s}|{:^9s}|{:^15s}|{:^8s}'.format('Age', 'Gender', 'Occupation', 'Rating'))
-    print('-'*37)
-    for li in q:
-        print('{:^5d} {:^9s} {:^15s} {:^8.3f}'.format(li[0], li[1], li[2], li[3]))
-    print('\nWhat is average rating by movie genre?')
-    print('{:^15s}|{:^8s}'.format('Genre', 'Rating'))
-    print('-'*24)
-    for r in session.query(Genre.genre, func.avg(Rating.rating)).join(Rating).group_by(Genre.genre).all():
-        print('{:^15s} {:^8.3f}'.format(r[0], r[1]))
-    moviesfromdb = session.query(Movie.id).all()
-    usersfromdb = session.query(User.id).all()
+    # print('\nWhat is average rating by age group, gender, and occupation of the reviewers?')
+    # q = session.query(User.age, User.gender, User.occupation, func.avg(Rating.rating)).join(Rating)\
+    #     .group_by(User.age, User.gender, User.occupation)
+    # print('{:^5s}|{:^9s}|{:^15s}|{:^8s}'.format('Age', 'Gender', 'Occupation', 'Rating'))
+    # print('-'*37)
+    # for li in q:
+    #     print('{:^5d} {:^9s} {:^15s} {:^8.3f}'.format(li[0], li[1], li[2], li[3]))
+    # print('\nWhat is average rating by movie genre?')
+    # print('{:^15s}|{:^8s}'.format('Genre', 'Rating'))
+    # print('-'*24)
+    # for r in session.query(Genre.genre, func.avg(Rating.rating)).join(Rating).group_by(Genre.genre).all():
+    #     print('{:^15s} {:^8.3f}'.format(r[0], r[1]))
     average_calc(moviesfromdb, usersfromdb, ratingdictionary, averages, count)
     slope_one_unknown('data/u{}.test'.format(count), count)
-    # slope_one_testing('data/u{}.test'.format(count), count, usersfromdb, moviesfromdb, averages)
+    # slope_one_testing(count, usersfromdb, moviesfromdb, averages)
     print('Done with file {}'.format(count))
     # TODO: Every file performance measure
     mse = performance_measure('data/u1.test', 'data/u1.test.Prediction')
