@@ -316,36 +316,67 @@ def sample_queries():
 # Main Program execution
 file_nums = range(1, 6)
 mse_set = []
-for count in file_nums:
-    sum_mse = 0.0
-    users = []
-    movies = []
-    genres = []
-    rating = []
-    averages.clear()
-    ratingdictionary.clear()
+custom_check = input("Enter c for custom or any other character for default.")
+if custom_check == "c":
+    print('Using custom file:')
+    in_loc = input("Enter path for data file")
+    in_file = 0
+    out_file = open('u5testcase.txt', 'w')
     Base.metadata.drop_all(engine)
     session.expunge_all()
     Base.metadata.create_all(engine)
-    print('\nReading in information for file {}'.format(count))
     try:
+        in_file = open(in_loc, 'r')
         user_read("data/u.user")
         print("User information read in")
         movie_read("data/u.item")
         print("Movie item information read in")
-        rating_read('data/u{}.base'.format(count))
-        print('Ratings from file {} read in'.format(count))
+        rating_read('data/u{}.base'.format(5))
+        print('Ratings from file {} read in'.format(5))
     except IOError as e:
         print("I/O error({0}): {1}".format(e.errno, e.strerror))
-    sample_queries()
     moviesfromdb = session.query(Movie.id).all()
     usersfromdb = session.query(User.id).all()
-    average_calc(moviesfromdb, usersfromdb, count)
-    slope_one_unknown('data/u{}.test'.format(count), count)
-    slope_one_testing(count)
-    print('Done with file {}'.format(count))
-    mse = performance_measure('data/u{}.test'.format(count), 'data/u{}.test.Prediction'.format(count))
-    print("MSE for file {} = {:.3f}".format(count, mse))
-    mse_set.append(mse)
-mse_average = sum(mse_set) / float(len(mse_set))
-print("\nAverage MSE = {:.3f}".format(mse_average))
+    average_calc(moviesfromdb, usersfromdb, 5)
+    for input_line in in_file:
+        result = input_line.strip('\n').split('\t')
+        us = int(result[0])
+        mo = int(result[1])
+        rat = slope_one_recommend(us, mo)
+        out_file.write('{}\t{}\t{}\n'.format(us, mo, rat))
+        out_file.flush()
+    print('Predictions generated for file {}'.format(5))
+else:
+    for count in file_nums:
+        sum_mse = 0.0
+        users = []
+        movies = []
+        genres = []
+        rating = []
+        averages.clear()
+        ratingdictionary.clear()
+        Base.metadata.drop_all(engine)
+        session.expunge_all()
+        Base.metadata.create_all(engine)
+        print('\nReading in information for file {}'.format(count))
+        try:
+            user_read("data/u.user")
+            print("User information read in")
+            movie_read("data/u.item")
+            print("Movie item information read in")
+            rating_read('data/u{}.base'.format(count))
+            print('Ratings from file {} read in'.format(count))
+        except IOError as e:
+            print("I/O error({0}): {1}".format(e.errno, e.strerror))
+        sample_queries()
+        moviesfromdb = session.query(Movie.id).all()
+        usersfromdb = session.query(User.id).all()
+        average_calc(moviesfromdb, usersfromdb, count)
+        slope_one_unknown('data/u{}.test'.format(count), count)
+        slope_one_testing(count)
+        print('Done with file {}'.format(count))
+        mse = performance_measure('data/u{}.test'.format(count), 'data/u{}.test.Prediction'.format(count))
+        print("MSE for file {} = {:.3f}".format(count, mse))
+        mse_set.append(mse)
+    mse_average = sum(mse_set) / float(len(mse_set))
+    print("\nAverage MSE = {:.3f}".format(mse_average))
